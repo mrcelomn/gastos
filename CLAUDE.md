@@ -14,7 +14,7 @@ Ficam FORA deste repo, em `C:\Users\marce\Documents\gastos-privado\` (têm token
   - RLS: tudo liberado só quando `eh_dono()` (e-mail do JWT = `config.email_dono`).
   - RPCs: `registrar_sms(texto, token)` (chamado pelo atalho do iPhone), `aplicar_regras_pendentes()`, `espelho_dados(token)`, `espelho_informar_planilha(token, url)`, `planilha_url()`.
   - O SQL completo (com token e e-mail) está em `gastos-privado\supabase-setup.sql`.
-- **Atalho do iPhone**: automação de Mensagem (remetente "Cartão XP" = 29190, contém "Compra Aprovada", executar imediatamente). Faz POST para `https://nkcypuoosdsdbokokdhh.supabase.co/rest/v1/rpc/registrar_sms` com cabeçalho `apikey` e corpo JSON `{texto: Entrada do Atalho, token: <token_sms>}`.
+- **Atalho do iPhone**: automação de Mensagem (qualquer remetente, contém "final 2392", executar imediatamente; o banco só lança se o texto tiver "Compra Aprovada de R$", o resto vira "Não reconhecido" no sms_log). Depois do POST, mostra uma notificação com a resposta do servidor. Faz POST para `https://nkcypuoosdsdbokokdhh.supabase.co/rest/v1/rpc/registrar_sms` com cabeçalho `apikey` e corpo JSON `{texto: Entrada do Atalho, token: <token_sms>}`.
 - **Espelho na planilha Google**: Apps Script vinculado à planilha "GASTOS - SETEMBRO" (versão atual: `gastos-privado\script-da-planilha.gs`). A cada 10 min (ou menu Gastos > Sincronizar agora, só existe na planilha de setembro) reescreve a aba Diário (tabela do Sheets: Data | Motivo | Crédito | Débito | Categoria) de CADA mês, mantendo a formatação, e escreve fatura/pensão na aba Totais (célula abaixo de FATURA e de PENSÃO). Mapa mês→planilha na propriedade `PLANILHAS`, conferido a cada execução pelo NOME da planilha = nome do período (se não bater, acha a certa pelo nome; por isso não renomear planilhas). Só roda na planilha principal (constante `PLANILHA_PRINCIPAL` = GASTOS - SETEMBRO); as cópias dos meses levam o script, mas nele nada roda. Mês novo no app → copia a planilha mais recente, limpa Diário e FATURA. Sentido único: app → planilha.
 
 ## Convenções do usuário
@@ -31,4 +31,4 @@ Ficam FORA deste repo, em `C:\Users\marce\Documents\gastos-privado\` (têm token
 ## Estado em 05/10/2026
 
 Feito: Supabase configurado, GitHub Pages no ar, app no iPhone, planilha ligada, abas antigas apagadas, aba Fatura no app, setembro conferido com a fatura (67 gastos, R$ 2.624,83), GASTOS - OUTUBRO criado (início 30/09).
-Planilhas de setembro e outubro conferidas e certas. Pendente: colar a versão com `PLANILHA_PRINCIPAL` na planilha de setembro; testar o atalho do iPhone com uma compra real.
+Planilhas de setembro e outubro conferidas e certas; script com `PLANILHA_PRINCIPAL` colado. Atalho testado manualmente (lançou). Pendente: confirmar na próxima compra real que o SMS dispara sozinho. Se não lançar e não houver linha no sms_log, o pedido foi recusado antes de registrar (token, apikey ou nomes dos campos) ou a automação não disparou.
