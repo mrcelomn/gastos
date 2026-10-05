@@ -6,7 +6,7 @@ App pessoal (PWA) que mostra e organiza os gastos do Cartão XP. Converse em por
 
 - **Site** (este repo, GitHub Pages: https://mrcelomn.github.io/gastos/): `index.html` único (CSS e JS inline), `manifest.webmanifest`, ícones `icon-180/192/512.png`. Usa supabase-js v2 via jsdelivr. Cor principal #B5215E, logo de barras em SVG.
 - **Supabase** (projeto `nkcypuoosdsdbokokdhh`, região São Paulo). A chave publishable fica no `index.html` (é pública por design; os dados são protegidos por login + RLS).
-  - Tabelas: `gastos` (data, motivo, valor, coluna 'Crédito'|'Débito', categoria, estabelecimento, origem 'app'|'sms'|'importado'), `regras` (contem, motivo, categoria, coluna, ordem: menor vale primeiro), `periodos` (nome, inicio; o atual é o de início mais recente), `sms_log`, `config` (sem políticas; guarda `email_dono`, `token_sms`, `planilha_url`).
+  - Tabelas: `gastos` (data, motivo, valor, coluna 'Crédito'|'Débito', categoria, estabelecimento, origem 'app'|'sms'|'importado'), `regras` (contem, motivo, categoria, coluna, ordem: menor vale primeiro), `periodos` (nome, inicio, fatura, pensao; o atual é o de início mais recente; fatura/pensao alimentam a aba Fatura do app: PIX = fatura − pensão − débito, pensão padrão 625), `sms_log`, `config` (sem políticas; guarda `email_dono`, `token_sms`, `planilha_url`).
   - RLS: tudo liberado só quando `eh_dono()` (e-mail do JWT = `config.email_dono`).
   - RPCs: `registrar_sms(texto, token)` (chamado pelo atalho do iPhone), `aplicar_regras_pendentes()`, `espelho_dados(token)`, `espelho_informar_planilha(token, url)`, `planilha_url()`.
   - O SQL completo (com token e e-mail) está no arquivo `1-supabase-setup.sql` que o usuário baixou. Não está neste repo de propósito.

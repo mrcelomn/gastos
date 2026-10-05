@@ -212,6 +212,7 @@
     <div class="periodo" id="periodo"></div>
     <section id="tela-gastos"></section>
     <section id="tela-resumo" class="hidden"></section>
+    <section id="tela-fatura" class="hidden"></section>
     <section id="tela-regras" class="hidden"></section>
   </main>
 
@@ -227,6 +228,10 @@
     <button data-tela="resumo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
       Resumo
+    </button>
+    <button data-tela="fatura">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+      Fatura
     </button>
     <button data-tela="regras">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
@@ -352,11 +357,12 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
     $('p-ant').onclick = function () { mudarPeriodo(-1); };
     $('p-prox').onclick = function () { mudarPeriodo(1); };
     $('periodo').classList.toggle('hidden', estado.tela === 'regras');
-    ['gastos', 'resumo', 'regras'].forEach(function (t) { $('tela-' + t).classList.toggle('hidden', t !== estado.tela); });
+    ['gastos', 'resumo', 'fatura', 'regras'].forEach(function (t) { $('tela-' + t).classList.toggle('hidden', t !== estado.tela); });
     document.querySelectorAll('nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.tela === estado.tela); });
-    $('fab').classList.toggle('hidden', estado.tela === 'resumo');
+    $('fab').classList.toggle('hidden', estado.tela === 'resumo' || estado.tela === 'fatura');
     if (estado.tela === 'gastos') renderGastos();
     if (estado.tela === 'resumo') renderResumo();
+    if (estado.tela === 'fatura') renderFatura();
     if (estado.tela === 'regras') renderRegras();
   }
   async function mudarPeriodo(d) {
@@ -431,6 +437,42 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
       }).join('') + '</div>';
     }
     $('tela-resumo').innerHTML = html;
+  }
+
+  var PENSAO_PADRAO = 625;
+  function renderFatura() {
+    var t = totais(), p = periodoAtual();
+    var pensao = p.pensao != null ? +p.pensao : PENSAO_PADRAO;
+    var fatura = p.fatura != null ? +p.fatura : null;
+    function emCampo(v) { return v == null ? '' : v.toFixed(2).replace('.', ','); }
+    var html = '<div class="hero"><div class="label">PIX</div><div class="total" id="x-pix">&nbsp;</div>' +
+      '<div class="split"><span class="chip">Fatura − Pensão − Débito</span></div></div>' +
+      '<div class="card"><h2>Totais do mês</h2>' +
+      '<div class="kv"><span>Crédito - Ronaldo</span><b>' + brl.format(t.cred) + '</b></div>' +
+      '<div class="kv"><span>Débito - Marcelo</span><b>' + brl.format(t.deb) + '</b></div></div>' +
+      '<div class="card"><h2>Valores do mês</h2>' +
+      '<div class="field"><label>Fatura (R$)</label><input id="x-fatura" type="text" inputmode="decimal" placeholder="Valor da fatura do cartão" value="' + emCampo(fatura) + '"></div>' +
+      '<div class="field"><label>Pensão (R$)</label><input id="x-pensao" type="text" inputmode="decimal" value="' + emCampo(pensao) + '"></div>' +
+      '<div class="row-btns"><button class="btn" id="x-salvar">Salvar</button></div></div>';
+    $('tela-fatura').innerHTML = html;
+    function calcular() {
+      var f = lerValor($('x-fatura').value), pe = lerValor($('x-pensao').value) || 0;
+      $('x-pix').textContent = $('x-fatura').value.trim() && !isNaN(f) ? brl.format(f - pe - t.deb) : 'Preencha a fatura';
+    }
+    $('x-fatura').oninput = calcular; $('x-pensao').oninput = calcular; calcular();
+    $('x-salvar').onclick = async function () {
+      if (p.id == null) return toast('Crie um mês primeiro (menu ⋯ > Começar novo mês).');
+      var f = $('x-fatura').value.trim() ? lerValor($('x-fatura').value) : null;
+      var pe = $('x-pensao').value.trim() ? lerValor($('x-pensao').value) : PENSAO_PADRAO;
+      if ((f != null && isNaN(f)) || isNaN(pe)) return toast('Valor inválido.');
+      var btn = this; btn.disabled = true; carregando(true);
+      try {
+        await q(sb.from('periodos').update({ fatura: f, pensao: pe }).eq('id', p.id));
+        p.fatura = f; p.pensao = pe; toast('Salvo.');
+      } catch (e) {
+        toast(/fatura|pensao/.test(erroMsg(e)) ? 'Falta preparar o banco para a fatura (rodar o SQL no Supabase).' : erroMsg(e));
+      } finally { btn.disabled = false; carregando(false); }
+    };
   }
 
   function renderRegras() {
