@@ -4,7 +4,7 @@ App pessoal (PWA) que mostra e organiza os gastos do Cartão XP. Converse em por
 
 ## Pasta privado/
 
-Ignorada pelo git (`.gitignore`): guarda o que tem token, e-mail ou dados pessoais e NUNCA pode ir para o GitHub. `script-da-planilha.gs` (Apps Script atual), `supabase-setup.sql`, `faturas/` (CSVs do XP, nome = data de vencimento), `planilhas-antigas/`.
+Ignorada pelo git (`.gitignore`): guarda o que tem token, e-mail ou dados pessoais e NUNCA pode ir para o GitHub. `script-da-planilha.gs` (Apps Script atual), e `supabase-setup.sql`.
 
 ## Arquitetura
 
