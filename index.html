@@ -611,12 +611,32 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
   $('btn-menu').onclick = function (e) { e.stopPropagation(); $('menu').classList.toggle('hidden'); };
   document.addEventListener('click', function (e) { if (!$('menu').contains(e.target)) fecharMenu(); });
   $('m-novo-periodo').onclick = function () { fecharMenu(); abrirNovoPeriodo(); };
-  $('m-planilha').onclick = async function () {
+  function abrirLink(url) { if (!window.open(url, '_blank')) location.href = url; } // se o iPhone bloquear a janela, abre aqui mesmo
+  // Abre a planilha do mês que está na tela. Na primeira vez em cada mês, pede o link e guarda no período.
+  $('m-planilha').onclick = function () {
     fecharMenu();
-    try {
-      var url = await q(sb.rpc('planilha_url'));
-      if (url) window.open(url, '_blank'); else toast('A planilha ainda não foi ligada ao app.');
-    } catch (e) { toast(erroMsg(e)); }
+    var p = periodoAtual();
+    if (p && p.planilha) { abrirLink(p.planilha); return; }
+    if (!p || p.id == null) return toast('Crie um mês primeiro.');
+    abrirSheet('<h3>Planilha de ' + esc(p.nome) + '</h3>' +
+      '<p class="hint" style="margin:0 0 14px">Só na primeira vez: abra a planilha deste mês no Google Planilhas, copie o link e cole aqui. Depois, o botão abre direto.</p>' +
+      '<div class="field"><label>Link da planilha</label><input id="pl-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..."></div>' +
+      '<div class="row-btns"><button class="btn sec" id="pl-principal">Abrir a principal</button><button class="btn" id="pl-salvar">Salvar e abrir</button></div>');
+    $('pl-principal').onclick = async function () {
+      try {
+        var url = await q(sb.rpc('planilha_url'));
+        if (url) { fecharSheet(); abrirLink(url); } else toast('A planilha ainda não foi ligada ao app.');
+      } catch (e) { toast(erroMsg(e)); }
+    };
+    $('pl-salvar').onclick = async function () {
+      var url = $('pl-url').value.trim();
+      if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)) return toast('Cole o link de uma planilha do Google.');
+      var btn = this; btn.disabled = true;
+      try {
+        await q(sb.from('periodos').update({ planilha: url }).eq('id', p.id));
+        p.planilha = url; fecharSheet(); abrirLink(url);
+      } catch (e) { btn.disabled = false; toast(erroMsg(e)); }
+    };
   };
   // Ao voltar para o app (por exemplo, depois de uma compra), atualiza sozinho.
   document.addEventListener('visibilitychange', function () {
