@@ -287,6 +287,12 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
   async function q(promessa) { // executa uma consulta e lança o erro, se houver
     var r = await promessa; if (r.error) throw r.error; return r.data;
   }
+  // Gasto dividido: coluna 'Crédito' com parte em Débito (campo debito). valor é sempre o total.
+  function partes(g) {
+    if (g.coluna === 'Débito') return { cred: 0, deb: +g.valor };
+    var d = +(g.debito || 0); return { cred: +g.valor - d, deb: d };
+  }
+  function dividido(g) { return g.coluna !== 'Débito' && +(g.debito || 0) > 0; }
   function pendente(g) { return !g.categoria || g.categoria === '?'; }
   function periodoAtual() { return estado.periodos[estado.idx]; }
   function fimDoPeriodo(i) { return estado.periodos[i + 1] ? estado.periodos[i + 1].inicio : null; } // exclusivo
@@ -375,7 +381,7 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
   function totais() {
     var t = { cred: 0, deb: 0, pend: 0 };
     estado.gastos.forEach(function (g) {
-      if (g.coluna === 'Débito') t.deb += +g.valor; else t.cred += +g.valor;
+      var pt = partes(g); t.cred += pt.cred; t.deb += pt.deb;
       if (pendente(g)) t.pend++;
     });
     t.total = t.cred + t.deb; return t;
@@ -409,7 +415,7 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
           '<span class="dot">' + esc((g.motivo || '?').charAt(0).toUpperCase()) + '</span>' +
           '<span class="info"><div class="nome">' + esc(g.motivo) + '</div>' +
           '<div class="sub">' + (p ? 'Toque para escolher a categoria' : esc(g.categoria)) + '</div></span>' +
-          '<span class="val">' + brl.format(+g.valor) + (g.coluna === 'Débito' ? '<br><span class="tag">Débito</span>' : '') + '</span></button>';
+          '<span class="val">' + brl.format(+g.valor) + (g.coluna === 'Débito' ? '<br><span class="tag">Débito</span>' : dividido(g) ? '<br><span class="tag">Débito ' + brl.format(+g.debito) + '</span>' : '') + '</span></button>';
       });
       html += '</div></div>';
     });
@@ -493,14 +499,17 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
   function abrirSheet(html) { $('sheet').innerHTML = html; $('sheet-bg').classList.remove('hidden'); }
   function fecharSheet() { $('sheet-bg').classList.add('hidden'); $('sheet').innerHTML = ''; }
   $('sheet-bg').onclick = function (e) { if (e.target === $('sheet-bg')) fecharSheet(); };
-  function seg(id, valor) {
-    return '<div class="seg" id="' + id + '">' + ['Crédito', 'Débito'].map(function (o) {
+  function seg(id, valor, opcoes) {
+    return '<div class="seg" id="' + id + '">' + (opcoes || ['Crédito', 'Débito']).map(function (o) {
       return '<button type="button" data-v="' + o + '" class="' + (o === valor ? 'on' : '') + '">' + o + '</button>';
     }).join('') + '</div>';
   }
-  function ligarSeg(id) {
+  function ligarSeg(id, aoMudar) {
     document.querySelectorAll('#' + id + ' button').forEach(function (b) {
-      b.onclick = function () { document.querySelectorAll('#' + id + ' button').forEach(function (x) { x.classList.toggle('on', x === b); }); };
+      b.onclick = function () {
+        document.querySelectorAll('#' + id + ' button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        if (aoMudar) aoMudar(b.dataset.v);
+      };
     });
   }
   function valorSeg(id) { var b = document.querySelector('#' + id + ' button.on'); return b ? b.dataset.v : 'Crédito'; }
@@ -516,12 +525,23 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
       '<div class="field"><label>Data</label><input id="f-data" type="date" value="' + (g ? g.data : hoje()) + '"></div>' +
       '<div class="field"><label>Motivo</label><input id="f-motivo" list="dl-motivos" value="' + esc(g && !p ? g.motivo : '') + '" placeholder="' + esc(p ? g.motivo : 'Ex.: Mercado') + '"></div>' +
       '<div class="field"><label>Categoria</label><input id="f-cat" list="dl-cats" value="' + esc(g && !p ? g.categoria : '') + '" placeholder="Ex.: Refeições"></div>' +
-      '<div class="field"><label>Coluna</label>' + seg('f-col', g ? g.coluna : 'Crédito') + '</div>' +
+      '<div class="field"><label>Coluna</label>' + seg('f-col', g ? (dividido(g) ? 'Dividir' : g.coluna) : 'Crédito', ['Crédito', 'Débito', 'Dividir']) + '</div>' +
+      '<div class="field' + (g && dividido(g) ? '' : ' hidden') + '" id="f-div"><label>Parte no Débito (R$)</label>' +
+      '<input id="f-deb" type="text" inputmode="decimal" placeholder="0,00" value="' + (g && dividido(g) ? (+g.debito).toFixed(2).replace('.', ',') : '') + '">' +
+      '<p class="hint" id="f-div-info" style="margin:6px 0 0"></p></div>' +
       (p ? '<label class="check"><input type="checkbox" id="f-regra" checked><span>Usar isso sempre que o SMS vier de <b>' + esc(nomeSms) + '</b> (cria uma regra e corrige os outros iguais)</span></label>' : '') +
       '<div class="row-btns"><button class="btn sec" id="f-cancelar">Cancelar</button><button class="btn" id="f-salvar">Salvar</button></div>' +
       (novo ? '' : '<div class="row-btns"><button class="btn danger" id="f-excluir">Excluir gasto</button></div>') +
       datalist('dl-motivos', motivos()) + datalist('dl-cats', categorias()));
-    ligarSeg('f-col');
+    function infoDiv() {
+      var v = lerValor($('f-valor').value), d = lerValor($('f-deb').value);
+      $('f-div-info').textContent = v > 0 && d > 0 && d < v ? 'Crédito ' + brl.format(v - d) + ' · Débito ' + brl.format(d) : 'A parte no Débito precisa ser menor que o valor.';
+    }
+    ligarSeg('f-col', function (v) {
+      $('f-div').classList.toggle('hidden', v !== 'Dividir');
+      if (v === 'Dividir') { infoDiv(); $('f-deb').focus(); }
+    });
+    $('f-valor').addEventListener('input', infoDiv); $('f-deb').oninput = infoDiv; infoDiv();
     if (novo) setTimeout(function () { $('f-valor').focus(); }, 50);
     $('f-cancelar').onclick = fecharSheet;
     $('f-salvar').onclick = async function () {
@@ -531,7 +551,13 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
       var motivo = $('f-motivo').value.trim() || (p ? g.motivo : '');
       if (!motivo) return toast('Informe o motivo.');
       var cat = $('f-cat').value.trim() || '?';
-      var dados = { data: $('f-data').value, valor: valor, motivo: motivo, categoria: cat, coluna: valorSeg('f-col') };
+      var col = valorSeg('f-col');
+      var dados = { data: $('f-data').value, valor: valor, motivo: motivo, categoria: cat, coluna: col === 'Dividir' ? 'Crédito' : col };
+      if (col === 'Dividir') {
+        var deb = lerValor($('f-deb').value);
+        if (!(deb > 0 && deb < valor)) return toast('A parte no Débito precisa ser maior que zero e menor que o valor.');
+        dados.debito = Math.round(deb * 100) / 100;
+      } else if (g && g.debito != null) dados.debito = null;
       var btn = this; btn.disabled = true; carregando(true);
       try {
         if (novo) await q(sb.from('gastos').insert(dados));
@@ -541,7 +567,10 @@ var SUPABASE_ANON = 'sb_publishable_BYToIfOKNBVoNPaPVSgQJw_M1nw0fpZ';
           await q(sb.rpc('aplicar_regras_pendentes'));
         }
         fecharSheet(); await atualizar('Salvo.');
-      } catch (e) { btn.disabled = false; toast(erroMsg(e)); } finally { carregando(false); }
+      } catch (e) {
+        btn.disabled = false;
+        toast(/debito/.test(erroMsg(e)) ? 'Falta preparar o banco para dividir (rodar o SQL no Supabase).' : erroMsg(e));
+      } finally { carregando(false); }
     };
     if (!novo) $('f-excluir').onclick = async function () {
       if (!confirm('Excluir ' + g.motivo + ' de ' + brl.format(+g.valor) + '?')) return;
